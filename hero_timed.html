@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Hero: Custom Timer</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; text-align: center; padding: 10px; }
+        .card { background: white; max-width: 500px; margin: 20px auto; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .header { background: #4a90e2; color: white; padding: 15px; border-radius: 15px; margin-bottom: 20px; }
+        .stats { display: flex; justify-content: space-around; margin-bottom: 15px; font-weight: bold; color: #34495e; }
+        #timer { font-size: 32px; color: #e74c3c; font-weight: bold; margin: 10px 0; }
+        .question { font-size: 26px; font-weight: bold; margin: 20px 0; color: #2c3e50; min-height: 40px; }
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .choice-btn { background: #fff; border: 2px solid #4a90e2; color: #4a90e2; padding: 15px; font-size: 20px; border-radius: 12px; cursor: pointer; transition: 0.2s; font-weight: bold; }
+        .choice-btn:hover { background: #4a90e2; color: white; }
+        select, input { font-size: 18px; padding: 12px; width: 85%; border: 2px solid #ddd; border-radius: 10px; margin: 10px 0; outline: none; }
+        .hidden { display: none; }
+        label { display: block; margin-top: 10px; font-weight: bold; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header"><h1>🌟 Math Hero</h1></div>
+
+    <div id="login-screen">
+        <input type="text" id="username" placeholder="Hero Name">
+        
+        <label for="time-select">Select Session Length:</label>
+        <select id="time-select">
+            <option value="60">1 Minute (Quick Sprint)</option>
+            <option value="300">5 Minutes</option>
+            <option value="600">10 Minutes</option>
+            <option value="1200" selected>20 Minutes (Daily Goal)</option>
+        </select>
+        
+        <button class="choice-btn" style="width:85%; margin-top:20px; background:#4caf50; color:white; border:none;" onclick="login()">Start Practice</button>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <div class="stats">
+            <span>🔥 Streak: <span id="streak-val">0</span></span>
+            <span>⭐ Points: <span id="points">0</span></span>
+        </div>
+        <div id="timer">20:00</div>
+        <div id="instr" style="color: #7f8c8d; font-size: 14px;"></div>
+        <div id="q-text" class="question"></div>
+        
+        <div id="choice-area" class="options-grid"></div>
+
+        <div id="input-area" class="hidden">
+            <input type="number" id="ans-input" placeholder="Type answer...">
+            <button class="choice-btn" style="width:85%; margin-top:10px;" onclick="checkManual()">Submit</button>
+        </div>
+    </div>
+
+    <div id="finish-screen" class="hidden">
+        <h2 id="finish-title">Session Complete! ✅</h2>
+        <p id="finish-msg"></p>
+        <button class="choice-btn" style="width:85%;" onclick="location.reload()">Back to Menu</button>
+    </div>
+</div>
+
+<script>
+    let currentUser, score = 0, timeLeft = 1200, correct, timerInterval;
+
+    function login() {
+        const user = document.getElementById('username').value.trim().toLowerCase();
+        if (!user) return alert("Enter a name!");
+        
+        currentUser = user;
+        timeLeft = parseInt(document.getElementById('time-select').value);
+        
+        // Verification: If session length is 20m, check if they already finished today
+        const lastDate = localStorage.getItem(`math_hero_date_${user}`);
+        if (timeLeft === 1200 && lastDate === new Date().toDateString()) {
+            document.getElementById('finish-msg').innerText = "You've already met your 20-minute goal today!";
+            showScreen('finish-screen');
+        } else {
+            document.getElementById('streak-val').innerText = localStorage.getItem(`math_hero_streak_${user}`) || 0;
+            showScreen('game-screen');
+            startTimer();
+            nextQ();
+        }
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            let m = Math.floor(timeLeft/60), s = timeLeft%60;
+            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+            if (timeLeft <= 0) endGame();
+        }, 1000);
+    }
+
+    function nextQ() {
+        const q = document.getElementById('q-text'), inst = document.getElementById('instr');
+        const choiceArea = document.getElementById('choice-area'), inputArea = document.getElementById('input-area');
+        choiceArea.innerHTML = ""; choiceArea.classList.add('hidden'); inputArea.classList.add('hidden');
+
+        const mode = Math.floor(Math.random() * 3);
+
+        if (mode === 0 || mode === 2) { 
+            choiceArea.classList.remove('hidden');
+            if (mode === 0) {
+                let a = Math.floor(Math.random() * 50), b = Math.floor(Math.random() * 50);
+                inst.innerText = "Arithmetic:"; q.innerText = `${a} + ${b} = ?`;
+                correct = a + b;
+            } else {
+                const step = [2,5,10][Math.floor(Math.random()*3)];
+                let start = (Math.floor(Math.random()*10))*step;
+                inst.innerText = `Patterns (${step}s):`;
+                q.innerText = `${start}, ${start+step}, ${start+(step*2)}, ___`;
+                correct = start + (step*3);
+            }
+            
+            let choices = [correct, correct+5, correct-2, correct+10].sort(() => Math.random() - 0.5);
+            choices.forEach(val => {
+                let btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.innerText = val;
+                btn.onclick = () => handleResult(val === correct);
+                choiceArea.appendChild(btn);
+            });
+        } 
+        else { 
+            inputArea.classList.remove('hidden');
+            let n = Array.from({length:3}, () => Math.floor(Math.random()*80000)+10000);
+            inst.innerText = "Order Numbers (Smallest):";
+            q.innerText = n.join(" | ");
+            correct = Math.min(...n);
+            document.getElementById('ans-input').value = "";
+            document.getElementById('ans-input').focus();
+        }
+    }
+
+    function handleResult(isCorrect) {
+        if (isCorrect) {
+            score += 10;
+            document.getElementById('points').innerText = score;
+            nextQ();
+        } else { alert("Try again!"); }
+    }
+
+    function checkManual() {
+        handleResult(parseInt(document.getElementById('ans-input').value) === correct);
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        const today = new Date().toDateString();
+        // Only update streak if they did the full 20 min session
+        if (parseInt(document.getElementById('time-select').value) === 1200) {
+            let streak = (parseInt(localStorage.getItem(`math_hero_streak_${currentUser}`)) || 0) + 1;
+            localStorage.setItem(`math_hero_streak_${currentUser}`, streak);
+            localStorage.setItem(`math_hero_date_${currentUser}`, today);
+            document.getElementById('finish-msg').innerText = "20-Minute Goal Met! Streak Updated.";
+        } else {
+            document.getElementById('finish-msg').innerText = `Quick practice complete! Points earned: ${score}`;
+        }
+        showScreen('finish-screen');
+    }
+
+    function showScreen(id) {
+        ['login-screen', 'game-screen', 'finish-screen'].forEach(s => document.getElementById(s).classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+</script>
+</body>
+</html>
